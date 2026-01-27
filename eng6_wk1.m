@@ -69,17 +69,57 @@ title('Greenhouse Identification Data');
 disp('Standard deviation of inputs:')
 disp(std(U));
 
+%{
 %% 11. Dead-time estimate example (Heating -> Temp)
 [xc,lags] = xcorr(Y-mean(Y), U(:,1)-mean(U(:,1)), 40, 'coeff');
 [~,i] = max(xc);
 deadtime_samples = lags(i);
 deadtime_minutes = deadtime_samples * Ts; % using numeric Ts
 disp(['Estimated dead time (Heating -> Temp): ', num2str(deadtime_minutes),' minutes']);
+%}
 
-%% 12. Split data into train/validation/test
+% 12. Dead time estimate for the rest of the variables
+maxLag = 40;  % up to 200 minutes
+nu = size(U,2);
+nk = zeros(1,nu);
+
+figure;
+for i = 1:nu
+    [xc,lags] = xcorr(Y, U(:,i), maxLag, 'coeff');
+    
+    subplot(4,2,i)
+    stem(lags, xc,'filled')
+    title(['xcorr: ', data.InputName{i}])
+    xlabel('Lag (samples)')
+    ylabel('Correlation')
+    
+    % Use positive lags only
+    posIdx = lags >= 0;
+    [~,idx] = max(xc(posIdx));
+    nk(i) = lags(posIdx);
+    nk(i) = nk(i)(idx);
+end
+
+disp('Estimated dead-times (samples):')
+disp(array2table(nk,'VariableNames',data.InputName))
+
+disp('Estimated dead-times (minutes):')
+disp(array2table(nk*Ts,'VariableNames',data.InputName))
+
+%% 13. Split data into train/validation/test
 N = length(Y);
 data_train = data(1:round(0.6*N));
 data_val   = data(round(0.6*N)+1:round(0.8*N));
 data_test  = data(round(0.8*N)+1:end);
 
 disp('Week 1 data setup complete. Training, validation, and test sets created.');
+
+%% 14. Implementing ARX
+na = 2;
+nb = repmat(2,1,nu);
+
+sys_arx = arx(data_train, [na nb nk]);
+
+figure;
+compare(data_val, sys_arx);
+title('ARX – Validation Data');
