@@ -123,3 +123,19 @@ sys_arx = arx(data_train, [na nb nk]);
 figure;
 compare(data_val, sys_arx);
 title('ARX – Validation Data');
+
+%% 15. Implement OE
+
+% make sure to name the end implementation "sys_oe"
+
+%% 16. Implement BJ
+
+% make sure to name the end implementation "sys_bj"
+
+%% 17. Compare data, ARX, OE and BJ
+%% 17.1 Fit percentage on test data
+
+figure;
+compare(data_test, sys_arx, sys_oe, sys_bj);
+legend('Measured','ARX','OE','BJ')
+title('Test-set comparison')
