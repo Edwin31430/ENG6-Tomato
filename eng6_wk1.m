@@ -78,7 +78,7 @@ deadtime_minutes = deadtime_samples * Ts; % using numeric Ts
 disp(['Estimated dead time (Heating -> Temp): ', num2str(deadtime_minutes),' minutes']);
 %}
 
-% 12. Dead time estimate for the rest of the variables
+%% 12. Dead time estimate for the rest of the variables
 maxLag = 40;  % up to 200 minutes
 nu = size(U,2);
 nk = zeros(1,nu);
@@ -96,8 +96,8 @@ for i = 1:nu
     % Use positive lags only
     posIdx = lags >= 0;
     [~,idx] = max(xc(posIdx));
-    nk(i) = lags(posIdx);
-    nk(i) = nk(i)(idx);
+    posLags = lags(posIdx);
+    nk(i) = posLags(idx);
 end
 
 disp('Estimated dead-times (samples):')
@@ -124,18 +124,71 @@ figure;
 compare(data_val, sys_arx);
 title('ARX – Validation Data');
 
-%% 15. Implement OE
+figure;
+resid(data_val, sys_arx);
+title('ARX Residual Analysis');
 
-% make sure to name the end implementation "sys_oe"
+figure;
+pzmap(sys_arx);
+title('ARX Stability Check');
+grid on;
+
+figure;
+step(sys_arx);
+grid on;
+title('Step Response – Plausibility Check');
+
+%% 15. Implement OE
+nf = repmat(2,1,nu);
+
+sys_oe = oe(data_train, [nb nf nk]);
+
+figure;
+compare(data_val, sys_oe);
+title('OE Model Validation');
+
+figure;
+resid(data_val, sys_oe);
+title('OE Residual Analysis');
+
+figure;
+pzmap(sys_oe);
+title('OE Stability Check');
+grid on
+
+figure;
+step(sys_oe);
+grid on;
+title('Step Response – Plausibility Check');
 
 %% 16. Implement BJ
+nc = 2;
+nd = 2;
 
-% make sure to name the end implementation "sys_bj"
+sys_bj = bj(data_train, [nb nc nd nf nk]);
+
+figure;
+compare(data_val, sys_bj);
+title('Box-Jenkins Model Validation');
+
+figure;
+resid(data_val, sys_bj);
+title('Box-Jenkins Residual Analysis');
+
+figure;
+pzmap(sys_bj);
+title('Box-Jenkins Stability Check');
+grid on;
+
+figure;
+step(sys_bj);
+grid on;
+title('Step Response – Plausibility Check');
 
 %% 17. Compare data, ARX, OE and BJ
 %% 17.1 Fit percentage on test data
 
 figure;
 compare(data_test, sys_arx, sys_oe, sys_bj);
-legend('Measured','ARX','OE','BJ')
+legend('Measured','ARX', 'OE', 'BJ')
 title('Test-set comparison')
