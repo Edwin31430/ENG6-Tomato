@@ -114,20 +114,25 @@ zq = linspace(min(zPos),max(zPos),40);
 [YI,ZI] = meshgrid(yq,zq);
 
 %% ================================================================
-%  9. INTERPOLATION METHODS
+%  9. INTERPOLATION METHODS (LINEAR, SPLINE, KRIGING)
 % ================================================================
+
+% --- Linear ---
 F_lin = scatteredInterpolant(yPos,zPos,Tv,'linear','nearest');
-F_nei = scatteredInterpolant(yPos,zPos,Tv,'natural','nearest');
-
 T_lin = F_lin(YI,ZI);
-T_nat = F_nei(YI,ZI);
 
+% --- Spline (via griddata) ---
+T_spl = griddata(yPos,zPos,Tv,YI,ZI,'cubic');
+
+% --- Kriging (GPR) ---
 gprMdl = fitrgp([yPos zPos],Tv,'KernelFunction','squaredexponential');
 T_krig = reshape(predict(gprMdl,[YI(:) ZI(:)]),size(YI));
+
 
 %% ================================================================
 %  10. VISUALIZATION
 % ================================================================
+
 figure;
 
 subplot(1,3,1)
@@ -136,9 +141,9 @@ hold on; scatter(yPos,zPos,60,Tv,'filled','k')
 title('Linear'); xlabel('Row'); ylabel('Height')
 
 subplot(1,3,2)
-contourf(YI,ZI,T_nat,20,'LineColor','none'); colorbar
+contourf(YI,ZI,T_spl,20,'LineColor','none'); colorbar
 hold on; scatter(yPos,zPos,60,Tv,'filled','k')
-title('Natural')
+title('Spline')
 
 subplot(1,3,3)
 contourf(YI,ZI,T_krig,20,'LineColor','none'); colorbar
@@ -146,6 +151,55 @@ hold on; scatter(yPos,zPos,60,Tv,'filled','k')
 title('Kriging (GPR)')
 
 sgtitle(sprintf('Spatial interpolation with height at t = %d',t0))
+
+%% ================================================================
+%  10.5 RMSE COMPARISON (LEAVE-ONE-OUT)
+% ================================================================
+
+nS = numel(Tv);
+
+rmse_lin  = zeros(nS,1);
+rmse_spl  = zeros(nS,1);
+rmse_krig = zeros(nS,1);
+
+for i = 1:nS
+    idx = true(nS,1);
+    idx(i) = false;
+
+    y_sub = yPos(idx);
+    z_sub = zPos(idx);
+    T_sub = Tv(idx);
+
+    % ---- Linear ----
+    F = scatteredInterpolant(y_sub,z_sub,T_sub,'linear','nearest');
+    rmse_lin(i) = (F(yPos(i),zPos(i)) - Tv(i)).^2;
+
+    % ---- Spline ----
+    T_pred_spl = griddata(y_sub,z_sub,T_sub,yPos(i),zPos(i),'cubic');
+    rmse_spl(i) = (T_pred_spl - Tv(i)).^2;
+
+    % ---- Kriging ----
+    gpr = fitrgp([y_sub z_sub],T_sub,'KernelFunction','squaredexponential');
+    T_pred_k = predict(gpr,[yPos(i) zPos(i)]);
+    rmse_krig(i) = (T_pred_k - Tv(i)).^2;
+end
+
+RMSE_linear  = sqrt(mean(rmse_lin,'omitnan'));
+RMSE_spline  = sqrt(mean(rmse_spl,'omitnan'));
+RMSE_kriging = sqrt(mean(rmse_krig,'omitnan'));
+
+fprintf('\nInterpolation RMSE:\n');
+fprintf('Linear  : %.4f\n',RMSE_linear);
+fprintf('Spline  : %.4f\n',RMSE_spline);
+fprintf('Kriging : %.4f\n',RMSE_kriging);
+
+figure;
+bar([RMSE_linear RMSE_spline RMSE_kriging])
+set(gca,'XTickLabel',{'Linear','Spline','Kriging'})
+ylabel('RMSE (°C)')
+title('Interpolation RMSE Comparison')
+grid on
+
 
 %% ================================================================
 %  11. PCA ANALYSIS (MULTICOLLINEARITY / DOMINANT MODES)
