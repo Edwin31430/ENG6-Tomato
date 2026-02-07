@@ -200,6 +200,40 @@ ylabel('RMSE (°C)')
 title('Interpolation RMSE Comparison')
 grid on
 
+%% ================================================================
+%  10.7 SPLINE-BASED SENSOR PLACEMENT (UNCERTAINTY MAP)
+% ================================================================
+
+% Build uncertainty proxy: distance to nearest sensor
+distMap = zeros(size(YI));
+
+for k = 1:numel(YI)
+    d = sqrt((yPos - YI(k)).^2 + (zPos - ZI(k)).^2);
+    distMap(k) = min(d);
+end
+
+% Best candidate = max distance
+[~,idxBest] = max(distMap(:));
+bestRow    = YI(idxBest);
+bestHeight = ZI(idxBest);
+
+fprintf('\nRecommended new sensor (Spline support):\n');
+fprintf('Row = %.2f , Height = %.2f\n',bestRow,bestHeight);
+
+%% ---- Plot spline + uncertainty + placement ----
+figure;
+
+contourf(YI,ZI,T_spl,20,'LineColor','none'); 
+colorbar
+hold on;
+
+scatter(yPos,zPos,80,Tv,'filled','k')
+plot(bestRow,bestHeight,'rp','MarkerSize',18,'MarkerFaceColor','r')
+
+title('Spline interpolation with recommended sensor placement')
+xlabel('Row')
+ylabel('Height')
+legend('Spline temperature','Sensors','Recommended new sensor','Location','best')
 
 %% ================================================================
 %  11. PCA ANALYSIS (MULTICOLLINEARITY / DOMINANT MODES)
@@ -300,3 +334,7 @@ xticklabels(SensorID)
 xtickangle(45)
 ylabel('RMSE when removed')
 title('Sensor placement importance (leave-one-out)')
+
+
+
+
